@@ -275,8 +275,8 @@ my $rrcc = 0; # running rsyncs cycle counter
 ##: Define & init Getopt flag vars
 if ( defined $HELP ) { usage($parsync_dir); }
 if ( !defined $RPATH ) {
-  $RPATHPFX = "export PATH=${parsync_dir}:~/bin:/bin:/usr/sbin:/sbin:/usr/bin:\$PATH;";
-} else { $RPATHPFX = "export PATH=${RPATH}:${parsync_dir}:/usr/sbin:/sbin:/usr/bin:/bin:\$PATH;" }
+  $RPATHPFX = "env PATH=${parsync_dir}:~/bin:/bin:/usr/sbin:/sbin:/usr/bin:\$PATH";
+} else { $RPATHPFX = "env PATH=${RPATH}:${parsync_dir}:/usr/sbin:/sbin:/usr/bin:/bin:\$PATH" }
 
 # UDR not currently working until I can test it on ESNET
 if   ( !defined $UDR )        { $UDR = ""; }
@@ -1126,7 +1126,7 @@ if ( $MULTIHOST > 0 ) {
   --nowait --verbose=${VERBOSE} --maxload=${MAXLOAD} --slowdown=${RTT_DELAY} \\
   --startdir=$ROOTDIR  --skipfpart --fpstart=$fps --fpstride=$nbrhosts \\
     $rcmd \\
-    $RECHOSTS[$i] 2> /dev/null \\
+    $RECHOSTS[$i] \\
     |& tee -a $pfplog ");
    
     if ( $VERBOSE > 2 ) { 
@@ -2168,7 +2168,7 @@ sub clearline() { print "\e[K"; } # easier to remember this way.
 # (~1s for an 85ms connection and most of these will be on a local net, taking < 0.5s)
 sub short_hostname($hostname) {
   my $host = shift;
-  my $shortname = `ssh $host 'hostname -s 2> /dev/null' 2> /dev/null`;
+  my $shortname = `ssh $host 'hostname -s' 2> /dev/null`;
   chomp $shortname;
   return $shortname;
 }
@@ -2611,10 +2611,9 @@ qq(ssh $fqrhs "ps ux | grep rsyn[c]| grep -v '${CALLING_PROGRAM}\\|daemon' | wc 
       if ( $VERBOSE >= 2 ) { INFO("[$host2check] is free of competing rsyncs.\n") }
     }
     $checkcmd =
-      qq(ssh $fqrhs 'if [[ -e .ssh/config ]]; then grep Host ~/.ssh/config; fi' 2> /dev/null);
+      qq(ssh $fqrhs 'test -e ~/.ssh/config && grep Host ~/.ssh/config' 2> /dev/null);
 #      print __LINE__, " : checkcmd = [$checkcmd] \n";
-    $checkout = `$checkcmd`; chomp $checkout;
-    if ( $checkout =~ "Host" ) {
+    if ( system($checkcmd) == 0 ) {
       WARN("[$fqrhs] has a ~/.ssh/config file containing 'Host' definitions, 
   which might interfere with determining the interface. If it does, 
   please use the FQDN (not the short form) for the corresponding host:    
